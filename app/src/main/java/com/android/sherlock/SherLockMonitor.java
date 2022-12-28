@@ -130,6 +130,26 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                 }
         );
 
+        // hook获取剪切板方法
+        XposedHelpers.findAndHookMethod(
+                android.content.ClipboardManager.class.getName(),
+                lpparam.classLoader,
+                "getPrimaryClip",
+                new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        XposedBridge.log("调用getPrimaryClip()获取了剪切板");
+                        showToast(appInfo, "调用getPrimaryClip获取了剪切板内容");
+                    }
+
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        XposedBridge.log(getMethodStack());
+                        super.afterHookedMethod(param);
+                    }
+                }
+        );
+
         // hook定位方法
         XposedHelpers.findAndHookMethod(
                 LocationManager.class.getName(),
