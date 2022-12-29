@@ -1,88 +1,104 @@
 package com.android.sherlock;
 
 import android.app.AndroidAppHelper;
-import android.content.ContentResolver;
+import android.content.ContentProvider;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
-import android.provider.Settings;
 import android.widget.Toast;
-
 import java.net.NetworkInterface;
-
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-/**
- * 示例：
- * <pre>
- *     XposedHelpers.findAndHookMethod(
- *     "需要hook的方法所在类的完整类名",
- *     lpparam.classLoader,      // 类加载器
- *     "需要hook的方法名",
- *     Class<?>,  // 参数类型
- *     new XC_MethodHook() {
- *
- *         @Override
- *         protected void beforeHookedMethod(MethodHookParam param) {
- *             XposedBridge.log("调用XXX()获取了XXX");
- *         }
- *
- *         @Override
- *         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
- *             XposedBridge.log(getMethodStack());
- *             super.afterHookedMethod(param);
- *         }
- *     }
- * );
- * </pre>
- */
+//**
+// * 示例：
+// * <pre>1
+// *     XposedHelpers.findAndHookMethod(
+// *     "需要hook的方法所在类的完整类名",
+// *     lpparam.classLoader,      // 类加载器
+// *     "需要hook的方法名",
+// *     Class<?>,  // 参数类型
+// *     new XC_MethodHook() {
+// *
+// *         @Override
+// *         protected void beforeHookedMethod(MethodHookParam param) {
+// *             XposedBridge.log("调用XXX()获取了XXX");
+// *         }
+// *
+// *         @Override
+// *         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+// *             XposedBridge.log(getMethodStack());
+// *             super.afterHookedMethod(param);
+// *         }
+// *     }
+// * );
+// * </pre>
+// */
+
 public class SherLockMonitor implements IXposedHookLoadPackage {
 
-    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
+    private void showToast(ApplicationInfo applicationInfo,String text){
+        try {
+            Context context = AndroidAppHelper.currentApplication().getApplicationContext();
+            String label = applicationInfo.loadLabel(context.getPackageManager()).toString();
+            Toast.makeText(context,"["+label+"]"+text,Toast.LENGTH_LONG).show();
+        }catch (Throwable ignore){
 
-        if (lpparam == null) {
+        }
+    }
+
+    private String getMethodStack(){
+        StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        for(StackTraceElement temp : stackTraceElements){
+            stringBuilder.append(temp.toString()).append("\n");
+        }
+        return stringBuilder.toString();
+    }
+
+    @Override
+    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpParam)  {
+        if(lpParam ==null){
             return;
         }
 
-        final ApplicationInfo appInfo = lpparam.appInfo;
-
-
+        final ApplicationInfo applicationInfo = lpParam.appInfo;
         XposedHelpers.findAndHookMethod(
-                android.telephony.TelephonyManager.class.getName(),
-                lpparam.classLoader,
-                "getDeviceId",
-                new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getDeviceId()获取了imei");
-                        showToast(appInfo, lpparam.packageName +"调用getDeviceId()获取了imei");
-                    }
+          android.telephony.TelephonyManager.class.getName(),
+          lpParam.classLoader,
+          "getDeviceId",
+          new XC_MethodHook() {
+              @Override
+              protected void beforeHookedMethod(MethodHookParam param) {
+                  XposedBridge.log(lpParam.packageName +"调用getDeviceId()获取了DeviceId");
+                  showToast(applicationInfo, lpParam.packageName +"调用getDeviceId()获取了DeviceId");
+              }
 
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log(getMethodStack());
-                        super.afterHookedMethod(param);
-                    }
-                }
+              @Override
+              protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                  XposedBridge.log(getMethodStack());
+                  super.afterHookedMethod(param);
+              }
+          }
         );
 
-        // hook获取设备信息方法
         XposedHelpers.findAndHookMethod(
                 android.telephony.TelephonyManager.class.getName(),
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getDeviceId",
                 int.class,
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getDeviceId(int)获取了imei");
-                        showToast(appInfo, lpparam.packageName +"调用getDeviceId(int)获取了imei");
+                        XposedBridge.log(lpParam.packageName +"调用getDeviceId(int)获取了DeviceId");
+                        showToast(applicationInfo, lpParam.packageName +"调用getDeviceId(int)获取了DeviceId");
                     }
 
                     @Override
@@ -92,38 +108,37 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                     }
                 }
         );
-
-        XposedHelpers.findAndHookMethod(
-          android.telephony.TelephonyManager.class.getName(),
-          lpparam.classLoader,
-          "getImei",
-                new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getImei()获取了imei");
-                        showToast(appInfo, lpparam.packageName +"调用getImei()获取了imei");
-                    }
-
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log(getMethodStack());
-                        super.afterHookedMethod(param);
-                    }
-                }
-
-        );
-
 
         XposedHelpers.findAndHookMethod(
                 android.telephony.TelephonyManager.class.getName(),
-                lpparam.classLoader,
+                lpParam.classLoader,
+                "getImei",
+                new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        XposedBridge.log(lpParam.packageName +"调用getImei()获取了imei");
+                        showToast(applicationInfo, lpParam.packageName +"调用getImei()获取了imei");
+                    }
+
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        XposedBridge.log(getMethodStack());
+                        super.afterHookedMethod(param);
+                    }
+                }
+
+        );
+
+        XposedHelpers.findAndHookMethod(
+                android.telephony.TelephonyManager.class.getName(),
+                lpParam.classLoader,
                 "getImei",
                 int.class,
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getImei(int)获取了imei");
-                        showToast(appInfo, lpparam.packageName +"调用getImei(int)获取了imei");
+                        XposedBridge.log(lpParam.packageName +"调用getImei(int)获取了imei");
+                        showToast(applicationInfo, lpParam.packageName +"调用getImei(int)获取了imei");
                     }
 
                     @Override
@@ -132,20 +147,18 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                         super.afterHookedMethod(param);
                     }
                 }
-
         );
 
-        // hook imsi获取方法
         XposedHelpers.findAndHookMethod(
                 android.telephony.TelephonyManager.class.getName(),
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getSubscriberId",
                 int.class,
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getSubscriberId获取了imsi");
-                        showToast(appInfo, lpparam.packageName +"调用getSubscriberId获取了imsi");
+                        XposedBridge.log(lpParam.packageName +"调用getSubscriberId获取了imsi");
+                        showToast(applicationInfo, lpParam.packageName +"调用getSubscriberId获取了imsi");
                     }
 
                     @Override
@@ -154,17 +167,18 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                         super.afterHookedMethod(param);
                     }
                 }
+
         );
-        // hook低版本系统获取mac地方方法
+
         XposedHelpers.findAndHookMethod(
-                android.net.wifi.WifiInfo.class.getName(),
-                lpparam.classLoader,
-                "getMacAddress",
+            android.net.wifi.WifiInfo.class.getName(),
+            lpParam.classLoader,
+            "getMacAddress",
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getMacAddress()获取了mac地址");
-                        showToast(appInfo, lpparam.packageName +"调用getMacAddress()获取了mac地址");
+                        XposedBridge.log(lpParam.packageName +"调用getMacAddress获取了mac地址");
+                        showToast(applicationInfo, lpParam.packageName +"调用getMacAddress获取了mac地址");
                     }
 
                     @Override
@@ -174,16 +188,16 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                     }
                 }
         );
-        // hook获取mac地址方法
+
         XposedHelpers.findAndHookMethod(
                 java.net.NetworkInterface.class.getName(),
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getHardwareAddress",
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getHardwareAddress()获取了mac地址");
-                        showToast(appInfo, lpparam.packageName +"调用getNetworkInterfaces获取了网络信息");
+                        XposedBridge.log(lpParam.packageName +"调用getHardwareAddress获取了mac地址");
+                        showToast(applicationInfo, lpParam.packageName +"调用getHardwareAddress获取了mac地址");
                     }
 
                     @Override
@@ -194,37 +208,15 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                 }
         );
 
-        // hook获取剪切板方法
         XposedHelpers.findAndHookMethod(
                 android.content.ClipboardManager.class.getName(),
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getPrimaryClip",
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getPrimaryClip()获取了剪切板");
-                        showToast(appInfo, lpparam.packageName +"调用getPrimaryClip获取了剪切板内容");
-                    }
-
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log(getMethodStack());
-                        super.afterHookedMethod(param);
-                    }
-                }
-        );
-
-
-        XposedHelpers.findAndHookMethod(
-                android.content.ClipboardManager.class.getName(),
-                lpparam.classLoader,
-                "getPrimaryClip",
-                int.class,
-                new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getPrimaryClip(int)获取了剪切板");
-                        showToast(appInfo, lpparam.packageName +"调用getPrimaryClip(int)获取了剪切板内容");
+                        XposedBridge.log(lpParam.packageName +"调用getPrimaryClip()获取了剪切板");
+                        showToast(applicationInfo, lpParam.packageName +"调用getPrimaryClip获取了剪切板内容");
                     }
 
                     @Override
@@ -236,15 +228,16 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
         );
 
         XposedHelpers.findAndHookMethod(
-                Settings.Secure.class.getName(),
-                lpparam.classLoader,
+                android.provider.Settings.class.getName(),
+                lpParam.classLoader,
                 "getString",
-                ContentResolver.class,
+                ContentProvider.class,
+                String.class,
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log( lpparam.packageName +"调用Settings.Secure.getstring获取了" + param.args[1]);
-                        showToast(appInfo,  lpparam.packageName +"调用Settings.Secure.getstring获取了" + param.args[1]);
+                        XposedBridge.log(lpParam.packageName +"调用getString()获取了"+ param.args[1]);
+                        showToast(applicationInfo, lpParam.packageName +"调用getString()获取了"+ param.args[1]);
                     }
 
                     @Override
@@ -255,17 +248,16 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                 }
         );
 
-        // hook定位方法
         XposedHelpers.findAndHookMethod(
                 LocationManager.class.getName(),
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getLastKnownLocation",
                 String.class,
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getLastKnownLocation获取了GPS地址");
-                        showToast(appInfo, lpparam.packageName +"调用getLastKnownLocation获取了GPS地址");
+                        XposedBridge.log(lpParam.packageName +"调用getLastKnownLocation获取了GPS地址");
+                        showToast(applicationInfo, lpParam.packageName +"调用getLastKnownLocation获取了GPS地址");
                     }
 
                     @Override
@@ -278,7 +270,7 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
 
         XposedHelpers.findAndHookMethod(
                 LocationManager.class.getName(),
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "requestLocationUpdates",
                 String.class,
                 long.class,
@@ -287,8 +279,8 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用requestLocationUpdates获取了GPS地址");
-                        showToast(appInfo, lpparam.packageName +"调用requestLocationUpdates获取了GPS地址");
+                        XposedBridge.log(lpParam.packageName +"调用requestLocationUpdates获取了GPS地址");
+                        showToast(applicationInfo, lpParam.packageName +"调用requestLocationUpdates获取了GPS地址");
                     }
 
                     @Override
@@ -299,16 +291,15 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                 }
         );
 
-
         XposedHelpers.findAndHookMethod(
                 "android.app.ActivityManager",
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getRunningAppProcesses",
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param)  {
-                        XposedBridge.log(lpparam.packageName +"调用getRunningAppProcesses()获取了正在运行的App");
-                        showToast(appInfo, lpparam.packageName +"调用getRunningAppProcesses()获取了正在运行的App");
+                        XposedBridge.log(lpParam.packageName +"调用getRunningAppProcesses()获取了正在运行的App");
+                        showToast(applicationInfo, lpParam.packageName +"调用getRunningAppProcesses()获取了正在运行的App");
                     }
 
                     @Override
@@ -321,14 +312,14 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
 
         XposedHelpers.findAndHookMethod(
                 "android.app.ApplicationPackageManager",
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getInstalledPackages",
                 int.class,
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param)  {
-                        XposedBridge.log(lpparam.packageName +"调用getInstalledPackages()获取了当前用户安装的所有软件包的列表");
-                        showToast(appInfo, lpparam.packageName +"调用getInstalledPackages()获取了当前用户安装的所有软件包的列表");
+                        XposedBridge.log(lpParam.packageName +"调用getInstalledPackages()获取了当前用户安装的所有软件包的列表");
+                        showToast(applicationInfo, lpParam.packageName +"调用getInstalledPackages()获取了当前用户安装的所有软件包的列表");
                     }
 
                     @Override
@@ -339,17 +330,16 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                 }
         );
 
-
         XposedHelpers.findAndHookMethod(
                 "android.app.ApplicationPackageManager",
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getInstalledApplications",
                 int.class,
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param)  {
-                        XposedBridge.log(lpparam.packageName +"调用getInstalledApplications()获取了当前用户安装的所有应用程序包的列表");
-                        showToast(appInfo, lpparam.packageName +"调用getInstalledApplications()获取了当前用户安装的所有应用程序包的列表");
+                        XposedBridge.log(lpParam.packageName +"调用getInstalledApplications()获取了当前用户安装的所有应用程序包的列表");
+                        showToast(applicationInfo, lpParam.packageName +"调用getInstalledApplications()获取了当前用户安装的所有应用程序包的列表");
                     }
 
                     @Override
@@ -359,18 +349,17 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                     }
                 }
         );
-
 
         // Hook 获取网络接入标识|IP地址等信息
         XposedHelpers.findAndHookMethod(
                 NetworkInterface.class.getName(),
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getNetworkInterfaces",
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param)  {
-                        XposedBridge.log(lpparam.packageName +"调用getNetworkInterfaces获取了网络信息");
-                        showToast(appInfo, lpparam.packageName +"调用getNetworkInterfaces获取了网络信息");
+                        XposedBridge.log(lpParam.packageName +"调用getNetworkInterfaces获取了网络信息");
+                        showToast(applicationInfo, lpParam.packageName +"调用getNetworkInterfaces获取了网络信息");
                     }
 
                     @Override
@@ -380,15 +369,16 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                     }
                 }
         );
+
         XposedHelpers.findAndHookMethod(
                 ConnectivityManager.class.getName(),
-                lpparam.classLoader,
+                lpParam.classLoader,
                 "getActiveNetworkInfo",
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(lpparam.packageName +"调用getActiveNetworkInfo获取了网络信息");
-                        showToast(appInfo, lpparam.packageName +"调用getActiveNetworkInfo获取了网络信息");
+                        XposedBridge.log(lpParam.packageName +"调用getActiveNetworkInfo获取了网络信息");
+                        showToast(applicationInfo, lpParam.packageName +"调用getActiveNetworkInfo获取了网络信息");
                     }
 
                     @Override
@@ -398,28 +388,6 @@ public class SherLockMonitor implements IXposedHookLoadPackage {
                     }
                 }
         );
+
     }
-
-    private void showToast(ApplicationInfo appInfo, String msg) {
-        try {
-            Context context = AndroidAppHelper.currentApplication().getApplicationContext();
-            String label = appInfo.loadLabel(context.getPackageManager()).toString();
-            Toast.makeText(context, "[" + label + "]" + msg, Toast.LENGTH_SHORT).show();
-        } catch (Throwable ignore) {
-
-        }
-    }
-
-    private String getMethodStack() {
-        StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-
-        StringBuilder stringBuilder = new StringBuilder();
-
-        for (StackTraceElement temp : stackTraceElements) {
-            stringBuilder.append(temp.toString()).append("\n");
-        }
-
-        return stringBuilder.toString();
-    }
-
 }
